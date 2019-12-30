@@ -5,7 +5,7 @@ project(Retopo)
 set(PROJECT_NAME Retopo)
 
 set(SOURCE_FILES
-  src/retopo.cpp
+  src/retopo.cpp src/voxelpointgrid.cpp src/voxelpointgrid.hpp
 )
 
 set(LIBRARIES OpenMaya Foundation)
