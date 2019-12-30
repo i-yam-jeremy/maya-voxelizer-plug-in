@@ -8,6 +8,6 @@ set(SOURCE_FILES
   src/retopo.cpp
 )
 
-set(LIBRARIES OpenMaya)
+set(LIBRARIES OpenMaya Foundation)
 
 build_plugin()
