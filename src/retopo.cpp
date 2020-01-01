@@ -12,16 +12,13 @@
 #include <maya/MDagPath.h>
 #include <maya/MPoint.h>
 #include <maya/MPointArray.h>
-#include <maya/MFloatPointArray.h>
 #include <maya/MDGModifier.h>
+#include <maya/MVector.h>
+#include <maya/MTypes.h>
 
 #include "voxelpointgrid.hpp"
 
 DeclareSimpleCommand(Retopo, "Jeremy Berchtold", "2019");
-
-double squareDistanceBetweenPoints(const MPoint& a, const MPoint& b) {
-  return (a.x-b.x)*(a.x-b.x) + (a.y-b.y)*(a.y-b.y) + (a.z-b.z)*(a.z-b.z);
-}
 
 MStatus getMinMaxPoints(const MFnMesh& mesh, MPoint& minPoint, MPoint& maxPoint) {
   double inf = std::numeric_limits<double>::infinity();
@@ -45,7 +42,7 @@ MStatus getMinMaxPoints(const MFnMesh& mesh, MPoint& minPoint, MPoint& maxPoint)
   return status;
 }
 
-void addVoxel(MFloatPointArray& vertexArray, MIntArray& polygonCounts, MIntArray& polygonConnects, MPoint minPoint, double resolution) {
+void addVoxel(MPointArray& vertexArray, MIntArray& polygonCounts, MIntArray& polygonConnects, MPoint minPoint, double resolution, voxelizer::VoxelPointGrid voxelPoints, int x, int y, int z) {
   MPoint vertices[] = {
     minPoint,
     MPoint(minPoint.x, minPoint.y, minPoint.z+resolution),
@@ -60,7 +57,7 @@ void addVoxel(MFloatPointArray& vertexArray, MIntArray& polygonCounts, MIntArray
   int startVertexIndex = vertexArray.length();
 
   for (MPoint vertex : vertices) {
-    vertexArray.append(MFloatPoint(vertex.x - resolution/2, vertex.y - resolution/2, vertex.z - resolution/2, vertex.w));
+    vertexArray.append(MPoint(vertex.x - resolution/2, vertex.y - resolution/2, vertex.z - resolution/2, vertex.w));
   }
 
   int faceIndices[][4] = {
@@ -75,7 +72,6 @@ void addVoxel(MFloatPointArray& vertexArray, MIntArray& polygonCounts, MIntArray
   for (int i = 0; i < 6; i++) {
     polygonCounts.append(4);
     for (int j = 0; j < 4; j++) {
-      std::cout << startVertexIndex+faceIndices[i][j] << std::endl;
       polygonConnects.append(startVertexIndex+faceIndices[i][j]);
     }
   }
@@ -108,9 +104,6 @@ MStatus Retopo::doIt(const MArgList& args) {
   MPoint minPoint;
   status = getMinMaxPoints(mesh, minPoint, maxPoint);
 
-  std::cout << "(" << minPoint.x << ", " << minPoint.y << ", " << minPoint.z << ")" << std::endl;
-  std::cout << "(" << maxPoint.x << ", " << maxPoint.y << ", " << maxPoint.z << ")" << std::endl;
-
   double resolution = 0.1;
 
   int voxelCountX = 1 + (maxPoint.x - minPoint.x) / resolution;
@@ -136,7 +129,7 @@ MStatus Retopo::doIt(const MArgList& args) {
   }
 
   // Add voxel cubes
-  MFloatPointArray vertexArray;
+  MPointArray vertexArray;
   MIntArray polygonCounts;
   MIntArray polygonConnects;
   for (int x = 0; x < voxelCountX; x++) {
@@ -152,14 +145,13 @@ MStatus Retopo::doIt(const MArgList& args) {
             polygonCounts,
             polygonConnects,
             p,
-            resolution);
+            resolution,
+            voxelPoints,
+            x, y, z);
         }
       }
     }
   }
-
-  std::cout << "VA: " << vertexArray.length() << std::endl;
-  std::cout << "PC: " << polygonCounts.length() << std::endl;
 
   MDGModifier dgModifier;
   MObject meshTransformObj = dgModifier.createNode("transform");
@@ -168,9 +160,14 @@ MStatus Retopo::doIt(const MArgList& args) {
 
   MFnMesh newMesh;
   newMesh.create(vertexArray.length(), polygonCounts.length(), vertexArray, polygonCounts, polygonConnects, meshTransformObj, &status);
-  if (!status)
-
   newMesh.setName("Mesh");
+
+  dgModifier.commandToExecute("select -d -all");
+  dgModifier.commandToExecute("select Mesh");
+  dgModifier.commandToExecute("polySetToFaceNormal");
+  dgModifier.commandToExecute("polyNormal -nm 2"); // Conform Normals
+  dgModifier.commandToExecute("polySetToFaceNormal");
+  dgModifier.commandToExecute("select -d Mesh");
 
   dgModifier.doIt();
 
