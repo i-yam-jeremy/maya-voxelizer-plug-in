@@ -1,5 +1,6 @@
 #include <iostream>
 #include <limits>
+#include <cmath>
 
 #include <maya/MIOStream.h>
 #include <maya/MSimple.h>
@@ -59,7 +60,7 @@ void addVoxel(MFloatPointArray& vertexArray, MIntArray& polygonCounts, MIntArray
   int startVertexIndex = vertexArray.length();
 
   for (MPoint vertex : vertices) {
-    vertexArray.append(MFloatPoint(vertex.x, vertex.y, vertex.z, vertex.w));
+    vertexArray.append(MFloatPoint(vertex.x - resolution/2, vertex.y - resolution/2, vertex.z - resolution/2, vertex.w));
   }
 
   int faceIndices[][4] = {
@@ -127,7 +128,9 @@ MStatus Retopo::doIt(const MArgList& args) {
         MPoint closestPoint;
         status = mesh.getClosestPoint(p, closestPoint);
         voxelPoints[x][y][z] =
-          squareDistanceBetweenPoints(p, closestPoint) < resolution*resolution;
+          (std::abs(p.x - closestPoint.x) < resolution) &&
+          (std::abs(p.y - closestPoint.y) < resolution) &&
+          (std::abs(p.z - closestPoint.z) < resolution);
       }
     }
   }
@@ -136,13 +139,10 @@ MStatus Retopo::doIt(const MArgList& args) {
   MFloatPointArray vertexArray;
   MIntArray polygonCounts;
   MIntArray polygonConnects;
-  for (int x = 1; x < voxelCountX; x++) {
-    for (int y = 1; y < voxelCountY; y++) {
-      for (int z = 1; z < voxelCountZ; z++) {
-        if (voxelPoints[x][y][z]/* && voxelPoints[x-1][y][z] &&
-            voxelPoints[x][y-1][z] && voxelPoints[x-1][y-1][z] &&
-            voxelPoints[x][y][z-1] && voxelPoints[x-1][y][z-1] &&
-            voxelPoints[x][y-1][z-1] && voxelPoints[x-1][y-1][z-1]*/) {
+  for (int x = 0; x < voxelCountX; x++) {
+    for (int y = 0; y < voxelCountY; y++) {
+      for (int z = 0; z < voxelCountZ; z++) {
+        if (voxelPoints[x][y][z]) {
           MPoint p(
             x*resolution + minPoint.x,
             y*resolution + minPoint.y,
