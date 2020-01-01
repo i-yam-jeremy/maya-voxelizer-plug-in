@@ -7,10 +7,12 @@
 #include <maya/MSelectionList.h>
 #include <maya/MItSelectionList.h>
 #include <maya/MFnMesh.h>
+#include <maya/MFnDependencyNode.h>
 #include <maya/MDagPath.h>
 #include <maya/MPoint.h>
 #include <maya/MPointArray.h>
 #include <maya/MFloatPointArray.h>
+#include <maya/MDGModifier.h>
 
 #include "voxelpointgrid.hpp"
 
@@ -159,20 +161,18 @@ MStatus Retopo::doIt(const MArgList& args) {
   std::cout << "VA: " << vertexArray.length() << std::endl;
   std::cout << "PC: " << polygonCounts.length() << std::endl;
 
-  status = mesh.createInPlace(
-    vertexArray.length(),
-    polygonCounts.length(),
-    vertexArray,
-    polygonCounts,
-    polygonConnects);
+  MDGModifier dgModifier;
+  MObject meshTransformObj = dgModifier.createNode("transform");
+  MFnDependencyNode dpNode(meshTransformObj);
+  dpNode.setName("meshTransform");
 
-  std::cout << "Cip kSuccess: " << (status == MS::kSuccess) << std::endl;
-  std::cout << "Cip kLicenseFailure: " << (status == MS::kLicenseFailure) << std::endl;
-  std::cout << "Cip kInvalidParameter: " << (status == MS::kInvalidParameter) << std::endl;
-  std::cout << "Cip kFailure: " << (status == MS::kFailure) << std::endl;
-  std::cout << "Cip kInsufficientMemory: " << (status == MS::kInsufficientMemory) << std::endl;
+  MFnMesh newMesh;
+  newMesh.create(vertexArray.length(), polygonCounts.length(), vertexArray, polygonCounts, polygonConnects, meshTransformObj, &status);
+  if (!status)
 
-  std::cout << "Polygon count: " << mesh.numPolygons() << std::endl;
+  newMesh.setName("Mesh");
+
+  dgModifier.doIt();
 
   return status;
 }
