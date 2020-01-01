@@ -10,6 +10,7 @@
 #include <maya/MDagPath.h>
 #include <maya/MPoint.h>
 #include <maya/MPointArray.h>
+#include <maya/MFloatPointArray.h>
 
 #include "voxelpointgrid.hpp"
 
@@ -19,8 +20,30 @@ double squareDistanceBetweenPoints(const MPoint& a, const MPoint& b) {
   return (a.x-b.x)*(a.x-b.x) + (a.y-b.y)*(a.y-b.y) + (a.z-b.z)*(a.z-b.z);
 }
 
-MStatus addVoxel(MFnMesh& mesh, MPoint minPoint, double resolution) {
-  MPoint v[] = {
+MStatus getMinMaxPoints(const MFnMesh& mesh, MPoint& minPoint, MPoint& maxPoint) {
+  double inf = std::numeric_limits<double>::infinity();
+  double negInf = -std::numeric_limits<double>::infinity();
+  maxPoint.x = maxPoint.y = maxPoint.z = negInf;
+  minPoint.x = minPoint.y = minPoint.z = inf;
+
+  MPointArray vertexArray;
+  MStatus status = mesh.getPoints(vertexArray);
+  if (status != MS::kSuccess) return status;
+  for (unsigned int i = 0; i < vertexArray.length(); i++) {
+    MPoint p = vertexArray[i];
+    if (p.x < minPoint.x) minPoint.x = p.x;
+    if (p.x > maxPoint.x) maxPoint.x = p.x;
+    if (p.y < minPoint.y) minPoint.y = p.y;
+    if (p.y > maxPoint.y) maxPoint.y = p.y;
+    if (p.z < minPoint.z) minPoint.z = p.z;
+    if (p.z > maxPoint.z) maxPoint.z = p.z;
+  }
+
+  return status;
+}
+
+void addVoxel(MFloatPointArray& vertexArray, MIntArray& polygonCounts, MIntArray& polygonConnects, MPoint minPoint, double resolution) {
+  MPoint vertices[] = {
     minPoint,
     MPoint(minPoint.x, minPoint.y, minPoint.z+resolution),
     MPoint(minPoint.x, minPoint.y+resolution, minPoint.z),
@@ -31,22 +54,29 @@ MStatus addVoxel(MFnMesh& mesh, MPoint minPoint, double resolution) {
     MPoint(minPoint.x+resolution, minPoint.y+resolution, minPoint.z+resolution),
   };
 
-  MPoint faceVerts[][4] = {
-    {v[0],v[1],v[3],v[2]},
-    {v[4],v[5],v[7],v[6]},
-    {v[0],v[1],v[5],v[4]},
-    {v[2],v[3],v[7],v[6]},
-    {v[0],v[2],v[6],v[4]},
-    {v[1],v[3],v[7],v[5]}
+  int startVertexIndex = vertexArray.length();
+
+  for (MPoint vertex : vertices) {
+    vertexArray.append(MFloatPoint(vertex.x, vertex.y, vertex.z, vertex.w));
+  }
+
+  int faceIndices[][4] = {
+    {0, 1, 3, 2},
+    {4, 5, 7, 6},
+    {0, 1, 5, 4},
+    {2, 3, 7, 6},
+    {0, 2, 6, 4},
+    {1, 3, 7, 5}
   };
 
   for (int i = 0; i < 6; i++) {
-    MStatus status;
-    mesh.addPolygon(MPointArray(faceVerts[i], 4), true, 1.0e-10, MObject::kNullObj, &status);
-    if (status != MS::kSuccess) return status;
+    polygonCounts.append(4);
+    for (int j = 0; j < 4; j++) {
+      std::cout << startVertexIndex+faceIndices[i][j] << std::endl;
+      polygonConnects.append(startVertexIndex+faceIndices[i][j]);
+    }
   }
 
-  return MS::kSuccess;
 }
 
 MStatus Retopo::doIt(const MArgList& args) {
@@ -54,6 +84,8 @@ MStatus Retopo::doIt(const MArgList& args) {
   MStatus status = MGlobal::getActiveSelectionList(selectionList);
   MItSelectionList selectionListIter(selectionList);
   selectionListIter.setFilter(MFn::kMesh);
+
+  std::cout << "------" << std::endl;
 
   if (selectionList.length() != 1) {
     std::cout << "Must select exactly one object." << std::endl;
@@ -67,22 +99,11 @@ MStatus Retopo::doIt(const MArgList& args) {
     return status;
   }
 
-  double inf = std::numeric_limits<double>::infinity();
-  double negInf = -std::numeric_limits<double>::infinity();
-  MPoint maxPoint(negInf, negInf, negInf);
-  MPoint minPoint(inf, inf, inf);
+  int originalPolyCount = mesh.numPolygons();
 
-  MPointArray vertexArray;
-  status = mesh.getPoints(vertexArray);
-  for (unsigned int i = 0; i < vertexArray.length(); i++) {
-    MPoint p = vertexArray[i];
-    if (p.x < minPoint.x) minPoint.x = p.x;
-    if (p.x > maxPoint.x) maxPoint.x = p.x;
-    if (p.y < minPoint.y) minPoint.y = p.y;
-    if (p.y > maxPoint.y) maxPoint.y = p.y;
-    if (p.z < minPoint.z) minPoint.z = p.z;
-    if (p.z > maxPoint.z) maxPoint.z = p.z;
-  }
+  MPoint maxPoint;
+  MPoint minPoint;
+  status = getMinMaxPoints(mesh, minPoint, maxPoint);
 
   std::cout << "(" << minPoint.x << ", " << minPoint.y << ", " << minPoint.z << ")" << std::endl;
   std::cout << "(" << maxPoint.x << ", " << maxPoint.y << ", " << maxPoint.z << ")" << std::endl;
@@ -109,34 +130,47 @@ MStatus Retopo::doIt(const MArgList& args) {
     }
   }
 
-  //Delete existing faces
-  std::cout << "Num polygons: " << mesh.numPolygons() << std::endl;
-  /*for (int i = 0; i < mesh.numPolygons(); i++) {
-    status = mesh.deleteFace(i);
-    if (status != MS::kSuccess) return status;
-    std::cout << "Polygon count: " << mesh.numPolygons() << std::endl;
-  }
-
-  status = mesh.updateSurface();*/
-
   // Add voxel cubes
-  /*for (int x = 1; x < voxelCountX; x++) {
+  MFloatPointArray vertexArray;
+  MIntArray polygonCounts;
+  MIntArray polygonConnects;
+  for (int x = 1; x < voxelCountX; x++) {
     for (int y = 1; y < voxelCountY; y++) {
       for (int z = 1; z < voxelCountZ; z++) {
         if (voxelPoints[x][y][z]/* && voxelPoints[x-1][y][z] &&
             voxelPoints[x][y-1][z] && voxelPoints[x-1][y-1][z] &&
             voxelPoints[x][y][z-1] && voxelPoints[x-1][y][z-1] &&
-            voxelPoints[x][y-1][z-1] && voxelPoints[x-1][y-1][z-1]*//*) {
+            voxelPoints[x][y-1][z-1] && voxelPoints[x-1][y-1][z-1]*/) {
           MPoint p(
             x*resolution + minPoint.x,
             y*resolution + minPoint.y,
             z*resolution + minPoint.z);
-          status = addVoxel(mesh, p, resolution);
-          if (status != MS::kSuccess) return status;
+          addVoxel(
+            vertexArray,
+            polygonCounts,
+            polygonConnects,
+            p,
+            resolution);
         }
       }
     }
-  }*/
+  }
+
+  std::cout << "VA: " << vertexArray.length() << std::endl;
+  std::cout << "PC: " << polygonCounts.length() << std::endl;
+
+  status = mesh.createInPlace(
+    vertexArray.length(),
+    polygonCounts.length(),
+    vertexArray,
+    polygonCounts,
+    polygonConnects);
+
+  std::cout << "Cip kSuccess: " << (status == MS::kSuccess) << std::endl;
+  std::cout << "Cip kLicenseFailure: " << (status == MS::kLicenseFailure) << std::endl;
+  std::cout << "Cip kInvalidParameter: " << (status == MS::kInvalidParameter) << std::endl;
+  std::cout << "Cip kFailure: " << (status == MS::kFailure) << std::endl;
+  std::cout << "Cip kInsufficientMemory: " << (status == MS::kInsufficientMemory) << std::endl;
 
   std::cout << "Polygon count: " << mesh.numPolygons() << std::endl;
 
