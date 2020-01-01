@@ -162,12 +162,21 @@ MStatus Retopo::doIt(const MArgList& args) {
   newMesh.create(vertexArray.length(), polygonCounts.length(), vertexArray, polygonCounts, polygonConnects, meshTransformObj, &status);
   newMesh.setName("Mesh");
 
-  dgModifier.commandToExecute("select -d -all");
+  // Set normals
+  dgModifier.commandToExecute("select -cl");
   dgModifier.commandToExecute("select Mesh");
   dgModifier.commandToExecute("polySetToFaceNormal");
   dgModifier.commandToExecute("polyNormal -nm 2"); // Conform Normals
   dgModifier.commandToExecute("polySetToFaceNormal");
   dgModifier.commandToExecute("select -d Mesh");
+
+  // Set material
+  dgModifier.commandToExecute(
+    "string $shader = `shadingNode -asShader lambert`;"
+    "select Mesh; hyperShade -assign $shader;"
+    "select -cl; hyperShade -objects $shader;"
+    "string $lambert = `createNode lambert`;"
+    "select lambert1 $lambert; hyperShade -objects \"\"");
 
   dgModifier.doIt();
 
