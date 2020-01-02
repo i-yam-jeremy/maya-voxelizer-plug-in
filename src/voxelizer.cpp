@@ -44,7 +44,7 @@ MStatus getMinMaxPoints(const MFnMesh& mesh, MPoint& minPoint, MPoint& maxPoint)
   return status;
 }
 
-void addVoxel(MPointArray& vertexArray, MIntArray& polygonCounts, MIntArray& polygonConnects, MPoint minPoint, double resolution, voxelizer::VoxelPointGrid voxelPoints, int x, int y, int z) {
+void addVoxel(MPointArray& vertexArray, MIntArray& polygonCounts, MIntArray& polygonConnects, MPoint minPoint, double resolution) {
   MPoint vertices[] = {
     minPoint,
     MPoint(minPoint.x, minPoint.y, minPoint.z+resolution),
@@ -150,9 +150,7 @@ MStatus voxelizer::Voxelizer::doIt(const MArgList& args) {
             polygonCounts,
             polygonConnects,
             p,
-            resolution,
-            voxelPoints,
-            x, y, z);
+            resolution);
         }
       }
     }
