@@ -22,65 +22,9 @@
 
 int voxelizer::Voxelizer::voxelMeshNameIndex = 1;
 
-MStatus getMinMaxPoints(const MFnMesh& mesh, MPoint& minPoint, MPoint& maxPoint) {
-  double inf = std::numeric_limits<double>::infinity();
-  double negInf = -std::numeric_limits<double>::infinity();
-  maxPoint.x = maxPoint.y = maxPoint.z = negInf;
-  minPoint.x = minPoint.y = minPoint.z = inf;
-
-  MPointArray vertexArray;
-  MStatus status = mesh.getPoints(vertexArray);
-  if (status != MS::kSuccess) return status;
-  for (unsigned int i = 0; i < vertexArray.length(); i++) {
-    MPoint p = vertexArray[i];
-    if (p.x < minPoint.x) minPoint.x = p.x;
-    if (p.x > maxPoint.x) maxPoint.x = p.x;
-    if (p.y < minPoint.y) minPoint.y = p.y;
-    if (p.y > maxPoint.y) maxPoint.y = p.y;
-    if (p.z < minPoint.z) minPoint.z = p.z;
-    if (p.z > maxPoint.z) maxPoint.z = p.z;
-  }
-
-  return status;
+voxelizer::Voxelizer::Voxelizer() {
+  this->meshName = getNextMeshName();
 }
-
-void addVoxel(MPointArray& vertexArray, MIntArray& polygonCounts, MIntArray& polygonConnects, MPoint minPoint, double resolution) {
-  MPoint vertices[] = {
-    minPoint,
-    MPoint(minPoint.x, minPoint.y, minPoint.z+resolution),
-    MPoint(minPoint.x, minPoint.y+resolution, minPoint.z),
-    MPoint(minPoint.x, minPoint.y+resolution, minPoint.z+resolution),
-    MPoint(minPoint.x+resolution, minPoint.y, minPoint.z),
-    MPoint(minPoint.x+resolution, minPoint.y, minPoint.z+resolution),
-    MPoint(minPoint.x+resolution, minPoint.y+resolution, minPoint.z),
-    MPoint(minPoint.x+resolution, minPoint.y+resolution, minPoint.z+resolution),
-  };
-
-  int startVertexIndex = vertexArray.length();
-
-  for (MPoint vertex : vertices) {
-    vertexArray.append(MPoint(vertex.x - resolution/2, vertex.y - resolution/2, vertex.z - resolution/2, vertex.w));
-  }
-
-  int faceIndices[][4] = {
-    {0, 1, 3, 2},
-    {4, 5, 7, 6},
-    {0, 1, 5, 4},
-    {2, 3, 7, 6},
-    {0, 2, 6, 4},
-    {1, 3, 7, 5}
-  };
-
-  for (int i = 0; i < 6; i++) {
-    polygonCounts.append(4);
-    for (int j = 0; j < 4; j++) {
-      polygonConnects.append(startVertexIndex+faceIndices[i][j]);
-    }
-  }
-
-}
-
-voxelizer::Voxelizer::Voxelizer() {}
 
 MStatus voxelizer::Voxelizer::doIt(const MArgList& args) {
   double resolution;
@@ -104,8 +48,6 @@ MStatus voxelizer::Voxelizer::doIt(const MArgList& args) {
   if (status == MS::kFailure) {
     return status;
   }
-
-  int originalPolyCount = mesh.numPolygons();
 
   MPoint maxPoint;
   MPoint minPoint;
@@ -156,10 +98,6 @@ MStatus voxelizer::Voxelizer::doIt(const MArgList& args) {
     }
   }
 
-  std::string meshName = "voxelizerMesh";
-  meshName += std::to_string(voxelizer::Voxelizer::voxelMeshNameIndex);
-  voxelizer::Voxelizer::voxelMeshNameIndex++;
-
   MObject meshTransformObj = dgModifier.createNode("transform");
   MFnDependencyNode dpNode(meshTransformObj);
   dpNode.setName("meshTransform");
@@ -168,13 +106,7 @@ MStatus voxelizer::Voxelizer::doIt(const MArgList& args) {
   newMesh.create(vertexArray.length(), polygonCounts.length(), vertexArray, polygonCounts, polygonConnects, meshTransformObj, &status);
   newMesh.setName(meshName.c_str());
 
-  // Set normals
-  dgModifier.commandToExecute("select -cl");
-  dgModifier.commandToExecute(("select " + meshName).c_str());
-  dgModifier.commandToExecute("polySetToFaceNormal");
-  dgModifier.commandToExecute("polyNormal -nm 2"); // Conform Normals
-  dgModifier.commandToExecute("polySetToFaceNormal");
-  dgModifier.commandToExecute(("select -d " + meshName).c_str());
+  setNormals();
 
   // Set material
   dgModifier.commandToExecute((
@@ -197,6 +129,10 @@ MStatus voxelizer::Voxelizer::undoIt() {
   return dgModifier.undoIt();
 }
 
+bool voxelizer::Voxelizer::isUndoable() const {
+  return true;
+}
+
 MSyntax voxelizer::Voxelizer::createSyntax() {
     MSyntax syntax;
 
@@ -210,4 +146,79 @@ MSyntax voxelizer::Voxelizer::createSyntax() {
 
 void* voxelizer::Voxelizer::creator() {
   return new voxelizer::Voxelizer();
+}
+
+MStatus voxelizer::Voxelizer::getMinMaxPoints(const MFnMesh& mesh, MPoint& minPoint, MPoint& maxPoint) {
+  double inf = std::numeric_limits<double>::infinity();
+  double negInf = -std::numeric_limits<double>::infinity();
+  maxPoint.x = maxPoint.y = maxPoint.z = negInf;
+  minPoint.x = minPoint.y = minPoint.z = inf;
+
+  MPointArray vertexArray;
+  MStatus status = mesh.getPoints(vertexArray);
+  if (status != MS::kSuccess) return status;
+  for (unsigned int i = 0; i < vertexArray.length(); i++) {
+    MPoint p = vertexArray[i];
+    if (p.x < minPoint.x) minPoint.x = p.x;
+    if (p.x > maxPoint.x) maxPoint.x = p.x;
+    if (p.y < minPoint.y) minPoint.y = p.y;
+    if (p.y > maxPoint.y) maxPoint.y = p.y;
+    if (p.z < minPoint.z) minPoint.z = p.z;
+    if (p.z > maxPoint.z) maxPoint.z = p.z;
+  }
+
+  return status;
+}
+
+void voxelizer::Voxelizer::addVoxel(MPointArray& vertexArray, MIntArray& polygonCounts, MIntArray& polygonConnects, MPoint minPoint, double resolution) {
+  MPoint vertices[] = {
+    minPoint,
+    MPoint(minPoint.x, minPoint.y, minPoint.z+resolution),
+    MPoint(minPoint.x, minPoint.y+resolution, minPoint.z),
+    MPoint(minPoint.x, minPoint.y+resolution, minPoint.z+resolution),
+    MPoint(minPoint.x+resolution, minPoint.y, minPoint.z),
+    MPoint(minPoint.x+resolution, minPoint.y, minPoint.z+resolution),
+    MPoint(minPoint.x+resolution, minPoint.y+resolution, minPoint.z),
+    MPoint(minPoint.x+resolution, minPoint.y+resolution, minPoint.z+resolution),
+  };
+
+  int startVertexIndex = vertexArray.length();
+
+  for (MPoint vertex : vertices) {
+    vertexArray.append(MPoint(vertex.x - resolution/2, vertex.y - resolution/2, vertex.z - resolution/2, vertex.w));
+  }
+
+  int faceIndices[][4] = {
+    {0, 1, 3, 2},
+    {4, 5, 7, 6},
+    {0, 1, 5, 4},
+    {2, 3, 7, 6},
+    {0, 2, 6, 4},
+    {1, 3, 7, 5}
+  };
+
+  for (int i = 0; i < 6; i++) {
+    polygonCounts.append(4);
+    for (int j = 0; j < 4; j++) {
+      polygonConnects.append(startVertexIndex+faceIndices[i][j]);
+    }
+  }
+
+}
+
+MStatus voxelizer::Voxelizer::setNormals() {
+  MStatus status = dgModifier.commandToExecute("select -cl");
+  status = dgModifier.commandToExecute(("select " + meshName).c_str());
+  status = dgModifier.commandToExecute("polySetToFaceNormal");
+  status = dgModifier.commandToExecute("polyNormal -nm 2"); // Conform Normals
+  status = dgModifier.commandToExecute("polySetToFaceNormal");
+  status = dgModifier.commandToExecute(("select -d " + meshName).c_str());
+  return status;
+}
+
+std::string voxelizer::Voxelizer::getNextMeshName() {
+  std::string meshName = "voxelizerMesh";
+  meshName += std::to_string(voxelMeshNameIndex);
+  voxelMeshNameIndex++;
+  return meshName;
 }
