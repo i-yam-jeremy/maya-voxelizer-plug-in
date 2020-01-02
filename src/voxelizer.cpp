@@ -1,3 +1,5 @@
+#include "voxelizer.hpp"
+
 #include <iostream>
 #include <limits>
 #include <cmath>
@@ -18,7 +20,7 @@
 
 #include "voxelpointgrid.hpp"
 
-DeclareSimpleCommand(Retopo, "Jeremy Berchtold", "2019");
+int voxelizer::Voxelizer::voxelMeshNameIndex = 0;
 
 MStatus getMinMaxPoints(const MFnMesh& mesh, MPoint& minPoint, MPoint& maxPoint) {
   double inf = std::numeric_limits<double>::infinity();
@@ -78,7 +80,7 @@ void addVoxel(MPointArray& vertexArray, MIntArray& polygonCounts, MIntArray& pol
 
 }
 
-MStatus Retopo::doIt(const MArgList& args) {
+MStatus voxelizer::Voxelizer::doIt(const MArgList& args) {
   MSelectionList selectionList;
   MStatus status = MGlobal::getActiveSelectionList(selectionList);
   MItSelectionList selectionListIter(selectionList);
@@ -153,6 +155,9 @@ MStatus Retopo::doIt(const MArgList& args) {
     }
   }
 
+  std::string meshName = "voxelizerMesh";
+  meshName += voxelizer::Voxelizer::voxelMeshNameIndex++;
+
   MDGModifier dgModifier;
   MObject meshTransformObj = dgModifier.createNode("transform");
   MFnDependencyNode dpNode(meshTransformObj);
@@ -164,19 +169,19 @@ MStatus Retopo::doIt(const MArgList& args) {
 
   // Set normals
   dgModifier.commandToExecute("select -cl");
-  dgModifier.commandToExecute("select Mesh");
+  dgModifier.commandToExecute(("select " + meshName).c_str());
   dgModifier.commandToExecute("polySetToFaceNormal");
   dgModifier.commandToExecute("polyNormal -nm 2"); // Conform Normals
   dgModifier.commandToExecute("polySetToFaceNormal");
-  dgModifier.commandToExecute("select -d Mesh");
+  dgModifier.commandToExecute(("select -d " + meshName).c_str());
 
   // Set material
-  dgModifier.commandToExecute(
+  dgModifier.commandToExecute((
     "string $shader = `shadingNode -asShader lambert`;"
-    "select Mesh; hyperShade -assign $shader;"
+    "select " + meshName + "; hyperShade -assign $shader;"
     "select -cl; hyperShade -objects $shader;"
     "string $lambert = `createNode lambert`;"
-    "select lambert1 $lambert; hyperShade -objects \"\"");
+    "select lambert1 $lambert; hyperShade -objects \"\"").c_str());
 
   dgModifier.doIt();
 
