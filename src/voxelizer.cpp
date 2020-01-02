@@ -16,10 +16,11 @@
 #include <maya/MDGModifier.h>
 #include <maya/MVector.h>
 #include <maya/MTypes.h>
+#include <maya/MArgList.h>
 
 #include "voxelpointgrid.hpp"
 
-int voxelizer::Voxelizer::voxelMeshNameIndex = 0;
+int voxelizer::Voxelizer::voxelMeshNameIndex = 1;
 
 MStatus getMinMaxPoints(const MFnMesh& mesh, MPoint& minPoint, MPoint& maxPoint) {
   double inf = std::numeric_limits<double>::infinity();
@@ -82,8 +83,11 @@ void addVoxel(MPointArray& vertexArray, MIntArray& polygonCounts, MIntArray& pol
 voxelizer::Voxelizer::Voxelizer() {}
 
 MStatus voxelizer::Voxelizer::doIt(const MArgList& args) {
+  double resolution;
+  MStatus status = args.get(0, resolution);
+
   MSelectionList selectionList;
-  MStatus status = MGlobal::getActiveSelectionList(selectionList);
+  status = MGlobal::getActiveSelectionList(selectionList);
   MItSelectionList selectionListIter(selectionList);
   selectionListIter.setFilter(MFn::kMesh);
 
@@ -106,8 +110,6 @@ MStatus voxelizer::Voxelizer::doIt(const MArgList& args) {
   MPoint maxPoint;
   MPoint minPoint;
   status = getMinMaxPoints(mesh, minPoint, maxPoint);
-
-  double resolution = 0.1;
 
   int voxelCountX = 1 + (maxPoint.x - minPoint.x) / resolution;
   int voxelCountY = 1 + (maxPoint.y - minPoint.y) / resolution;
@@ -200,26 +202,10 @@ MStatus voxelizer::Voxelizer::undoIt() {
 MSyntax voxelizer::Voxelizer::createSyntax() {
     MSyntax syntax;
 
-    /*syntax.addFlag("-d",    "-debug",        MSyntax::kNoArg);
-    syntax.addFlag("-ftr",  "-fitTimeRange", MSyntax::kNoArg);
-    syntax.addFlag("-h",    "-help",         MSyntax::kNoArg);
-    syntax.addFlag("-m",    "-mode",         MSyntax::kString);
-    syntax.addFlag("-rcs",  "-recreateAllColorSets", MSyntax::kNoArg);
+    syntax.setObjectType(MSyntax::kStringObjects, 1, 1);
 
-    syntax.addFlag("-ct",   "-connect",          MSyntax::kString);
-    syntax.addFlag("-crt",  "-createIfNotFound", MSyntax::kNoArg);
-    syntax.addFlag("-rm",   "-removeIfNoUpdate", MSyntax::kNoArg);
-
-    syntax.addFlag("-rpr",  "-reparent",     MSyntax::kString);
-    syntax.addFlag("-sts",  "-setToStartFrame",  MSyntax::kNoArg);
-
-    syntax.addFlag("-ft",   "-filterObjects",    MSyntax::kString);
-    syntax.addFlag("-eft",  "-excludeFilterObjects",    MSyntax::kString);
-
-    syntax.setObjectType( MSyntax::kStringObjects, 1, 1024 );
-
-    syntax.enableQuery(true);
-    syntax.enableEdit(false);*/
+    syntax.enableQuery(false);
+    syntax.enableEdit(false);
 
     return syntax;
 }
