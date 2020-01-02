@@ -157,7 +157,8 @@ MStatus voxelizer::Voxelizer::doIt(const MArgList& args) {
   }
 
   std::string meshName = "voxelizerMesh";
-  meshName += voxelizer::Voxelizer::voxelMeshNameIndex++;
+  meshName += std::to_string(voxelizer::Voxelizer::voxelMeshNameIndex);
+  voxelizer::Voxelizer::voxelMeshNameIndex++;
 
   MObject meshTransformObj = dgModifier.createNode("transform");
   MFnDependencyNode dpNode(meshTransformObj);
