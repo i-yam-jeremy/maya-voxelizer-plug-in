@@ -27,6 +27,7 @@ namespace voxelizer {
     MStatus getMinMaxPoints(const MFnMesh& mesh, MPoint& minPoint, MPoint& maxPoint);
     void addVoxel(MPointArray& vertexArray, MIntArray& polygonCounts, MIntArray& polygonConnects, MPoint minPoint, double resolution);
     MStatus setNormals();
+    MStatus setMaterial();
     static std::string getNextMeshName();
   };
 };

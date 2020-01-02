@@ -35,8 +35,6 @@ MStatus voxelizer::Voxelizer::doIt(const MArgList& args) {
   MItSelectionList selectionListIter(selectionList);
   selectionListIter.setFilter(MFn::kMesh);
 
-  std::cout << "------" << std::endl;
-
   if (selectionList.length() != 1) {
     std::cout << "Must select exactly one object." << std::endl;
   }
@@ -106,15 +104,8 @@ MStatus voxelizer::Voxelizer::doIt(const MArgList& args) {
   newMesh.create(vertexArray.length(), polygonCounts.length(), vertexArray, polygonCounts, polygonConnects, meshTransformObj, &status);
   newMesh.setName(meshName.c_str());
 
-  setNormals();
-
-  // Set material
-  dgModifier.commandToExecute((
-    "string $shader = `shadingNode -asShader lambert`;"
-    "select " + meshName + "; hyperShade -assign $shader;"
-    "select -cl; hyperShade -objects $shader;"
-    "string $lambert = `createNode lambert`;"
-    "select lambert1 $lambert; hyperShade -objects \"\"").c_str());
+  status = setNormals();
+  status = setMaterial();
 
   status = dgModifier.doIt();
 
@@ -214,6 +205,15 @@ MStatus voxelizer::Voxelizer::setNormals() {
   status = dgModifier.commandToExecute("polySetToFaceNormal");
   status = dgModifier.commandToExecute(("select -d " + meshName).c_str());
   return status;
+}
+
+MStatus voxelizer::Voxelizer::setMaterial() {
+  return dgModifier.commandToExecute((
+    "string $shader = `shadingNode -asShader lambert`;"
+    "select " + meshName + "; hyperShade -assign $shader;"
+    "select -cl; hyperShade -objects $shader;"
+    "string $lambert = `createNode lambert`;"
+    "select lambert1 $lambert; hyperShade -objects \"\"").c_str());
 }
 
 std::string voxelizer::Voxelizer::getNextMeshName() {
