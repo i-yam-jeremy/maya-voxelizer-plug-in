@@ -5,7 +5,9 @@ project(Voxelizer)
 set(PROJECT_NAME Voxelizer)
 
 set(SOURCE_FILES
-  src/voxelizer.cpp src/voxelpointgrid.cpp src/voxelpointgrid.hpp
+  src/main.cpp
+  src/voxelizer.cpp src/voxelizer.hpp
+  src/voxelpointgrid.cpp src/voxelpointgrid.hpp
 )
 
 set(LIBRARIES OpenMaya Foundation)

@@ -5,7 +5,6 @@
 #include <cmath>
 
 #include <maya/MIOStream.h>
-#include <maya/MSimple.h>
 #include <maya/MGlobal.h>
 #include <maya/MSelectionList.h>
 #include <maya/MItSelectionList.h>
@@ -79,6 +78,8 @@ void addVoxel(MPointArray& vertexArray, MIntArray& polygonCounts, MIntArray& pol
   }
 
 }
+
+voxelizer::Voxelizer::Voxelizer() {}
 
 MStatus voxelizer::Voxelizer::doIt(const MArgList& args) {
   MSelectionList selectionList;
@@ -158,14 +159,13 @@ MStatus voxelizer::Voxelizer::doIt(const MArgList& args) {
   std::string meshName = "voxelizerMesh";
   meshName += voxelizer::Voxelizer::voxelMeshNameIndex++;
 
-  MDGModifier dgModifier;
   MObject meshTransformObj = dgModifier.createNode("transform");
   MFnDependencyNode dpNode(meshTransformObj);
   dpNode.setName("meshTransform");
 
   MFnMesh newMesh;
   newMesh.create(vertexArray.length(), polygonCounts.length(), vertexArray, polygonCounts, polygonConnects, meshTransformObj, &status);
-  newMesh.setName("Mesh");
+  newMesh.setName(meshName.c_str());
 
   // Set normals
   dgModifier.commandToExecute("select -cl");
@@ -183,7 +183,46 @@ MStatus voxelizer::Voxelizer::doIt(const MArgList& args) {
     "string $lambert = `createNode lambert`;"
     "select lambert1 $lambert; hyperShade -objects \"\"").c_str());
 
-  dgModifier.doIt();
+  status = dgModifier.doIt();
 
   return status;
+}
+
+MStatus voxelizer::Voxelizer::redoIt() {
+  return dgModifier.doIt();
+}
+
+MStatus voxelizer::Voxelizer::undoIt() {
+  return dgModifier.undoIt();
+}
+
+MSyntax voxelizer::Voxelizer::createSyntax() {
+    MSyntax syntax;
+
+    /*syntax.addFlag("-d",    "-debug",        MSyntax::kNoArg);
+    syntax.addFlag("-ftr",  "-fitTimeRange", MSyntax::kNoArg);
+    syntax.addFlag("-h",    "-help",         MSyntax::kNoArg);
+    syntax.addFlag("-m",    "-mode",         MSyntax::kString);
+    syntax.addFlag("-rcs",  "-recreateAllColorSets", MSyntax::kNoArg);
+
+    syntax.addFlag("-ct",   "-connect",          MSyntax::kString);
+    syntax.addFlag("-crt",  "-createIfNotFound", MSyntax::kNoArg);
+    syntax.addFlag("-rm",   "-removeIfNoUpdate", MSyntax::kNoArg);
+
+    syntax.addFlag("-rpr",  "-reparent",     MSyntax::kString);
+    syntax.addFlag("-sts",  "-setToStartFrame",  MSyntax::kNoArg);
+
+    syntax.addFlag("-ft",   "-filterObjects",    MSyntax::kString);
+    syntax.addFlag("-eft",  "-excludeFilterObjects",    MSyntax::kString);
+
+    syntax.setObjectType( MSyntax::kStringObjects, 1, 1024 );
+
+    syntax.enableQuery(true);
+    syntax.enableEdit(false);*/
+
+    return syntax;
+}
+
+void* voxelizer::Voxelizer::creator() {
+  return new voxelizer::Voxelizer();
 }
