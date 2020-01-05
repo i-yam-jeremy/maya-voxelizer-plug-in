@@ -25,19 +25,13 @@ voxelizer::Voxelizer::Voxelizer() {
 MStatus voxelizer::Voxelizer::doIt(const MArgList& args) {
   MStatus status = args.get(0, this->resolution);
 
-  std::cout << "----------" << std::endl;
-
   MSelectionList selectionList;
   status = MGlobal::getActiveSelectionList(selectionList);
-  if (!status) {
+  if (!status) return status;
 
-  }
   MItSelectionList selectionListIter(selectionList);
   status = selectionListIter.setFilter(MFn::kMesh);
-  if (!status) {
-    MGlobal::displayError("Unable to set selection list filter.");
-    return status;
-  }
+  if (!status) return status;
 
   if (selectionList.length() != 1) {
     MGlobal::displayError("Must select exactly one polygon object.");
@@ -70,8 +64,6 @@ MStatus voxelizer::Voxelizer::doIt(const MArgList& args) {
   MIntArray polygonConnects;
   createVoxelGeometryArrays(vertexArray, polygonCounts, polygonConnects, voxelPoints);
 
-  std::cout << "Created polygon arrays" << std::endl;
-
   MObject meshTransformObj = dgModifier.createNode("transform");
   MFnDependencyNode dpNode(meshTransformObj);
   dpNode.setName("meshTransform");
@@ -80,16 +72,10 @@ MStatus voxelizer::Voxelizer::doIt(const MArgList& args) {
   newMesh.create(vertexArray.length(), polygonCounts.length(), vertexArray, polygonCounts, polygonConnects, meshTransformObj, &status);
   newMesh.setName(meshName.c_str());
 
-  std::cout << "Created new mesh" << std::endl;
-
   status = setNormals();
   status = setMaterial();
 
-  std::cout << "Set normals and material of new mesh" << std::endl;
-
   status = dgModifier.doIt();
-
-  std::cout << "doneIt" << std::endl;
 
   return status;
 }
