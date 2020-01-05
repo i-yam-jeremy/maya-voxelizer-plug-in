@@ -24,6 +24,7 @@ voxelizer::Voxelizer::Voxelizer() {
 
 MStatus voxelizer::Voxelizer::doIt(const MArgList& args) {
   MStatus status = args.get(0, this->resolution);
+  if (!status) return status;
 
   MSelectionList selectionList;
   status = MGlobal::getActiveSelectionList(selectionList);
@@ -39,7 +40,8 @@ MStatus voxelizer::Voxelizer::doIt(const MArgList& args) {
   }
 
   MDagPath dagPath;
-  selectionListIter.getDagPath(dagPath);
+  status = selectionListIter.getDagPath(dagPath);
+  if (!status) return status;
 
   MFnMesh mesh(dagPath, &status);
   if (!status) return status;
@@ -62,18 +64,23 @@ MStatus voxelizer::Voxelizer::doIt(const MArgList& args) {
   MPointArray vertexArray;
   MIntArray polygonCounts;
   MIntArray polygonConnects;
-  createVoxelGeometryArrays(vertexArray, polygonCounts, polygonConnects, voxelPoints);
+  createVoxelGeometryArrays(vertexArray, polygonCounts, polygonConnects,
+                            voxelPoints);
 
   MObject meshTransformObj = dgModifier.createNode("transform");
   MFnDependencyNode dpNode(meshTransformObj);
   dpNode.setName("meshTransform");
 
   MFnMesh newMesh;
-  newMesh.create(vertexArray.length(), polygonCounts.length(), vertexArray, polygonCounts, polygonConnects, meshTransformObj, &status);
+  newMesh.create(vertexArray.length(), polygonCounts.length(), vertexArray,
+                 polygonCounts, polygonConnects, meshTransformObj, &status);
+  if (!status) return status;
   newMesh.setName(meshName.c_str());
 
   status = setNormals();
+  if (!status) return status;
   status = setMaterial();
+  if (!status) return status;
 
   status = dgModifier.doIt();
 
@@ -209,10 +216,15 @@ void voxelizer::Voxelizer::addVoxel(MPointArray& vertexArray, MIntArray& polygon
 
 MStatus voxelizer::Voxelizer::setNormals() {
   MStatus status = dgModifier.commandToExecute("select -cl");
+  if (!status) return status;
   status = dgModifier.commandToExecute(("select " + meshName).c_str());
+  if (!status) return status;
   status = dgModifier.commandToExecute("polySetToFaceNormal");
+  if (!status) return status;
   status = dgModifier.commandToExecute("polyNormal -nm 2"); // Conform Normals
+  if (!status) return status;
   status = dgModifier.commandToExecute("polySetToFaceNormal");
+  if (!status) return status;
   status = dgModifier.commandToExecute(("select -d " + meshName).c_str());
   return status;
 }

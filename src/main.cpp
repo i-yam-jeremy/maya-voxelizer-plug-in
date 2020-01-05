@@ -11,9 +11,9 @@ MStatus initializePlugin(MObject obj) {
     MStatus status = plugin.registerCommand("voxelize",
                                 voxelizer::Voxelizer::creator,
                                 voxelizer::Voxelizer::createSyntax);
-    if (!status)
-    {
-        status.perror("registerCommand");
+    if (!status) {
+        MGlobal::displayError("Unable to register 'voxelize' command.");
+        return status;
     }
 
     return status;
@@ -23,9 +23,9 @@ MStatus uninitializePlugin(MObject obj) {
     MFnPlugin plugin(obj);
 
     MStatus status = plugin.deregisterCommand("voxelize");
-    if (!status)
-    {
-        status.perror("deregisterCommand");
+    if (!status) {
+        MGlobal::displayError("Unable to deregister 'voxelize' command.");
+        return status;
     }
 
     return status;
