@@ -6,11 +6,11 @@ voxelizer::VoxelPointLine::VoxelPointLine(int depth) {
   }
 }
 
-bool& voxelizer::VoxelPointLine::operator[](int z) {
+bool &voxelizer::VoxelPointLine::operator[](int z) {
   return this->voxelOccupancies[z];
 }
 
-const bool& voxelizer::VoxelPointLine::operator[](int z) const {
+const bool &voxelizer::VoxelPointLine::operator[](int z) const {
   return this->voxelOccupancies[z];
 }
 
@@ -20,11 +20,12 @@ voxelizer::VoxelPointPlane::VoxelPointPlane(int height, int depth) {
   }
 }
 
-voxelizer::VoxelPointLine& voxelizer::VoxelPointPlane::operator[](int y) {
+voxelizer::VoxelPointLine &voxelizer::VoxelPointPlane::operator[](int y) {
   return this->lines[y];
 }
 
-const voxelizer::VoxelPointLine& voxelizer::VoxelPointPlane::operator[](int y) const {
+const voxelizer::VoxelPointLine &
+    voxelizer::VoxelPointPlane::operator[](int y) const {
   return this->lines[y];
 }
 
@@ -34,10 +35,11 @@ voxelizer::VoxelPointGrid::VoxelPointGrid(int width, int height, int depth) {
   }
 }
 
-voxelizer::VoxelPointPlane& voxelizer::VoxelPointGrid::operator[](int x) {
+voxelizer::VoxelPointPlane &voxelizer::VoxelPointGrid::operator[](int x) {
   return this->planes[x];
 }
 
-const voxelizer::VoxelPointPlane& voxelizer::VoxelPointGrid::operator[](int x) const {
+const voxelizer::VoxelPointPlane &
+    voxelizer::VoxelPointGrid::operator[](int x) const {
   return this->planes[x];
 }
