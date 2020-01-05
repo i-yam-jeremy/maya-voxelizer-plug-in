@@ -4,7 +4,7 @@
 ![demo image](readme-resources/armadillo-demo.jpg)
 
 ## Usage
-1. Download or build the plug-in. For macOS, there is a pre-built binary [here](). If you are using another system, follow the build instructions [here]().
+1. Download or build the plug-in. For macOS, there is a pre-built binary [here](https://github.com/i-yam-jeremy/maya-retopo-plugin/releases/latest). If you are using another system, follow the build instructions below.
 
 2. Install the plug-in in Maya. Go to Windows > Settings/Preferences > Plug-in Manager. The click "Browser" and select the compiled binary.
 
