@@ -4,6 +4,7 @@
 
 #include "voxelizer.hpp"
 
+/* Initializes the voxelizer plugin. */
 MStatus initializePlugin(MObject obj) {
   MFnPlugin plugin(obj, "Voxelizer", "1.0", "Any");
 
@@ -17,6 +18,7 @@ MStatus initializePlugin(MObject obj) {
   return status;
 }
 
+/* Uninitializes the voxelizer plugin. */
 MStatus uninitializePlugin(MObject obj) {
   MFnPlugin plugin(obj);
 
