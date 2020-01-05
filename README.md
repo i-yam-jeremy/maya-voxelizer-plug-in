@@ -21,3 +21,6 @@ cd <maya-voxelizer-plugin>
 cmake ..
 make
 ``` 
+
+## Demo Model Source
+[Stanford Armadillo](https://graphics.stanford.edu/data/3Dscanrep/)
