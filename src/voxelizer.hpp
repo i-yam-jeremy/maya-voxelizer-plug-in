@@ -27,6 +27,8 @@ public:
   MStatus undoIt() override;
   /* Returns true because this command is undoable. */
   bool isUndoable() const override;
+  /* Defines the syntax for this command. */
+  static MSyntax createSyntax();
   /* Creates an instance of this class using the new keyword. */
   static void *creator();
 

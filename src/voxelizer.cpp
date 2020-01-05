@@ -100,11 +100,21 @@ MStatus voxelizer::Voxelizer::redoIt() {
 
 MStatus voxelizer::Voxelizer::undoIt() {
   MStatus status = MGlobal::removeFromModel(voxelObject);
-  // status = MGlobal::executeCommand(("delete " + meshName).c_str());
   return status;
 }
 
 bool voxelizer::Voxelizer::isUndoable() const { return true; }
+
+MSyntax voxelizer::Voxelizer::createSyntax() {
+  MSyntax syntax;
+
+  syntax.setObjectType(MSyntax::kStringObjects, 1, 1);
+
+  syntax.enableQuery(false);
+  syntax.enableEdit(false);
+
+  return syntax;
+}
 
 void *voxelizer::Voxelizer::creator() { return new voxelizer::Voxelizer(); }
 
