@@ -46,6 +46,9 @@ MStatus voxelizer::Voxelizer::doIt(const MArgList& args) {
   MFnMesh mesh(dagPath, &status);
   if (!status) return status;
 
+  MString inputMeshName = mesh.name(&status);
+  if (!status) return status;
+
   status = getMinMaxPoints(mesh, this->minPoint, this->maxPoint);
   if (!status) return status;
 
@@ -70,7 +73,7 @@ MStatus voxelizer::Voxelizer::doIt(const MArgList& args) {
   MFnTransform transform;
   MObject meshTransformObj = transform.create();
   MFnDependencyNode dpNode(meshTransformObj);
-  dpNode.setName("meshTransform");
+  dpNode.setName(inputMeshName + "_voxel");
 
   MFnMesh newMesh;
   newMesh.create(vertexArray.length(), polygonCounts.length(), vertexArray,
