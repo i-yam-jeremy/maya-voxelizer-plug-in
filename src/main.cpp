@@ -8,8 +8,7 @@ MStatus initializePlugin(MObject obj) {
   MFnPlugin plugin(obj, "Voxelizer", "1.0", "Any");
 
   MStatus status =
-      plugin.registerCommand("voxelize", voxelizer::Voxelizer::creator,
-                             voxelizer::Voxelizer::createSyntax);
+      plugin.registerCommand("voxelize", voxelizer::Voxelizer::creator);
   if (!status) {
     MGlobal::displayError("Unable to register 'voxelize' command.");
     return status;
