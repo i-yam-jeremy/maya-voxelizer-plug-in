@@ -4,12 +4,12 @@
 #include <string>
 
 #include <maya/MPxCommand.h>
-#include <maya/MDGModifier.h>
 #include <maya/MSyntax.h>
 #include <maya/MFnMesh.h>
 #include <maya/MPoint.h>
 #include <maya/MIntArray.h>
 #include <maya/MPointArray.h>
+#include <maya/MObject.h>
 
 #include "voxelpointgrid.hpp"
 
@@ -24,10 +24,10 @@ namespace voxelizer {
     static MSyntax createSyntax();
     static void* creator();
   private:
+    MObject voxelObject;
     double resolution;
     MPoint minPoint, maxPoint;
     int voxelCountX, voxelCountY, voxelCountZ;
-    MDGModifier dgModifier;
     std::string meshName;
     static int voxelMeshNameIndex;
 

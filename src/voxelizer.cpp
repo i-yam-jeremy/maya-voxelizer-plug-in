@@ -10,10 +10,10 @@
 #include <maya/MItSelectionList.h>
 #include <maya/MFnDependencyNode.h>
 #include <maya/MDagPath.h>
-#include <maya/MDGModifier.h>
 #include <maya/MVector.h>
 #include <maya/MTypes.h>
 #include <maya/MArgList.h>
+#include <maya/MFnTransform.h>
 
 
 int voxelizer::Voxelizer::voxelMeshNameIndex = 1;
@@ -67,7 +67,8 @@ MStatus voxelizer::Voxelizer::doIt(const MArgList& args) {
   createVoxelGeometryArrays(vertexArray, polygonCounts, polygonConnects,
                             voxelPoints);
 
-  MObject meshTransformObj = dgModifier.createNode("transform");
+  MFnTransform transform;
+  MObject meshTransformObj = transform.create();
   MFnDependencyNode dpNode(meshTransformObj);
   dpNode.setName("meshTransform");
 
@@ -82,17 +83,25 @@ MStatus voxelizer::Voxelizer::doIt(const MArgList& args) {
   status = setMaterial();
   if (!status) return status;
 
-  status = dgModifier.doIt();
+  this->voxelObject = newMesh.parent(0, &status);
+  if (!status) return status;
 
   return status;
 }
 
 MStatus voxelizer::Voxelizer::redoIt() {
-  return dgModifier.doIt();
+  MStatus status = MGlobal::addToModel(voxelObject);
+  if (!status) return status;
+  status = setNormals();
+  if (!status) return status;
+  status = setMaterial();
+  return status;
 }
 
 MStatus voxelizer::Voxelizer::undoIt() {
-  return dgModifier.undoIt();
+  MStatus status = MGlobal::removeFromModel(voxelObject);
+  //status = MGlobal::executeCommand(("delete " + meshName).c_str());
+  return status;
 }
 
 bool voxelizer::Voxelizer::isUndoable() const {
@@ -215,22 +224,22 @@ void voxelizer::Voxelizer::addVoxel(MPointArray& vertexArray, MIntArray& polygon
 }
 
 MStatus voxelizer::Voxelizer::setNormals() {
-  MStatus status = dgModifier.commandToExecute("select -cl");
+  MStatus status = MGlobal::executeCommand("select -cl");
   if (!status) return status;
-  status = dgModifier.commandToExecute(("select " + meshName).c_str());
+  status = MGlobal::executeCommand(("select " + meshName).c_str());
   if (!status) return status;
-  status = dgModifier.commandToExecute("polySetToFaceNormal");
+  status = MGlobal::executeCommand("polySetToFaceNormal");
   if (!status) return status;
-  status = dgModifier.commandToExecute("polyNormal -nm 2"); // Conform Normals
+  status = MGlobal::executeCommand("polyNormal -nm 2"); // Conform Normals
   if (!status) return status;
-  status = dgModifier.commandToExecute("polySetToFaceNormal");
+  status = MGlobal::executeCommand("polySetToFaceNormal");
   if (!status) return status;
-  status = dgModifier.commandToExecute(("select -d " + meshName).c_str());
+  status = MGlobal::executeCommand(("select -d " + meshName).c_str());
   return status;
 }
 
 MStatus voxelizer::Voxelizer::setMaterial() {
-  return dgModifier.commandToExecute((
+  return MGlobal::executeCommand((
     "string $shader = `shadingNode -asShader lambert`;"
     "select " + meshName + "; hyperShade -assign $shader;"
     "select -cl; hyperShade -objects $shader;"
