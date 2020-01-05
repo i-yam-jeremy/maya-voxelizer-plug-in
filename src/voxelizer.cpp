@@ -8,17 +8,13 @@
 #include <maya/MGlobal.h>
 #include <maya/MSelectionList.h>
 #include <maya/MItSelectionList.h>
-#include <maya/MFnMesh.h>
 #include <maya/MFnDependencyNode.h>
 #include <maya/MDagPath.h>
-#include <maya/MPoint.h>
-#include <maya/MPointArray.h>
 #include <maya/MDGModifier.h>
 #include <maya/MVector.h>
 #include <maya/MTypes.h>
 #include <maya/MArgList.h>
 
-#include "voxelpointgrid.hpp"
 
 int voxelizer::Voxelizer::voxelMeshNameIndex = 1;
 
@@ -27,74 +23,54 @@ voxelizer::Voxelizer::Voxelizer() {
 }
 
 MStatus voxelizer::Voxelizer::doIt(const MArgList& args) {
-  double resolution;
-  MStatus status = args.get(0, resolution);
+  MStatus status = args.get(0, this->resolution);
+
+  std::cout << "----------" << std::endl;
 
   MSelectionList selectionList;
   status = MGlobal::getActiveSelectionList(selectionList);
+  if (!status) {
+
+  }
   MItSelectionList selectionListIter(selectionList);
-  selectionListIter.setFilter(MFn::kMesh);
+  status = selectionListIter.setFilter(MFn::kMesh);
+  if (!status) {
+    MGlobal::displayError("Unable to set selection list filter.");
+    return status;
+  }
 
   if (selectionList.length() != 1) {
-    std::cout << "Must select exactly one object." << std::endl;
+    MGlobal::displayError("Must select exactly one polygon object.");
+    return MS::kFailure;
   }
 
   MDagPath dagPath;
   selectionListIter.getDagPath(dagPath);
 
   MFnMesh mesh(dagPath, &status);
-  if (status == MS::kFailure) {
-    return status;
-  }
+  if (!status) return status;
 
-  MPoint maxPoint;
-  MPoint minPoint;
-  status = getMinMaxPoints(mesh, minPoint, maxPoint);
+  status = getMinMaxPoints(mesh, this->minPoint, this->maxPoint);
+  if (!status) return status;
 
-  int voxelCountX = 1 + (maxPoint.x - minPoint.x) / resolution;
-  int voxelCountY = 1 + (maxPoint.y - minPoint.y) / resolution;
-  int voxelCountZ = 1 + (maxPoint.z - minPoint.z) / resolution;
+  this->voxelCountX = 1 + (maxPoint.x - minPoint.x) / resolution;
+  this->voxelCountY = 1 + (maxPoint.y - minPoint.y) / resolution;
+  this->voxelCountZ = 1 + (maxPoint.z - minPoint.z) / resolution;
   voxelizer::VoxelPointGrid voxelPoints(voxelCountX, voxelCountY, voxelCountZ);
 
-  for (int x = 0; x < voxelCountX; x++) {
-    for (int y = 0; y < voxelCountY; y++) {
-      for (int z = 0; z < voxelCountZ; z++) {
-        MPoint p(
-          x*resolution + minPoint.x,
-          y*resolution + minPoint.y,
-          z*resolution + minPoint.z);
-        MPoint closestPoint;
-        status = mesh.getClosestPoint(p, closestPoint);
-        voxelPoints[x][y][z] =
-          (std::abs(p.x - closestPoint.x) < resolution) &&
-          (std::abs(p.y - closestPoint.y) < resolution) &&
-          (std::abs(p.z - closestPoint.z) < resolution);
-      }
-    }
+  if (voxelCountX*voxelCountY*voxelCountZ > 50*50*50) {
+    // TODO prompt may take a while, are you sure?
   }
 
-  // Add voxel cubes
+  status = calculateVoxelGridOccupancy(voxelPoints, mesh);
+  if (!status) return status;
+
   MPointArray vertexArray;
   MIntArray polygonCounts;
   MIntArray polygonConnects;
-  for (int x = 0; x < voxelCountX; x++) {
-    for (int y = 0; y < voxelCountY; y++) {
-      for (int z = 0; z < voxelCountZ; z++) {
-        if (voxelPoints[x][y][z]) {
-          MPoint p(
-            x*resolution + minPoint.x,
-            y*resolution + minPoint.y,
-            z*resolution + minPoint.z);
-          addVoxel(
-            vertexArray,
-            polygonCounts,
-            polygonConnects,
-            p,
-            resolution);
-        }
-      }
-    }
-  }
+  createVoxelGeometryArrays(vertexArray, polygonCounts, polygonConnects, voxelPoints);
+
+  std::cout << "Created polygon arrays" << std::endl;
 
   MObject meshTransformObj = dgModifier.createNode("transform");
   MFnDependencyNode dpNode(meshTransformObj);
@@ -104,10 +80,16 @@ MStatus voxelizer::Voxelizer::doIt(const MArgList& args) {
   newMesh.create(vertexArray.length(), polygonCounts.length(), vertexArray, polygonCounts, polygonConnects, meshTransformObj, &status);
   newMesh.setName(meshName.c_str());
 
+  std::cout << "Created new mesh" << std::endl;
+
   status = setNormals();
   status = setMaterial();
 
+  std::cout << "Set normals and material of new mesh" << std::endl;
+
   status = dgModifier.doIt();
+
+  std::cout << "doneIt" << std::endl;
 
   return status;
 }
@@ -146,7 +128,7 @@ MStatus voxelizer::Voxelizer::getMinMaxPoints(const MFnMesh& mesh, MPoint& minPo
   minPoint.x = minPoint.y = minPoint.z = inf;
 
   MPointArray vertexArray;
-  MStatus status = mesh.getPoints(vertexArray);
+  MStatus status = mesh.getPoints(vertexArray, MSpace::kWorld);
   if (status != MS::kSuccess) return status;
   for (unsigned int i = 0; i < vertexArray.length(); i++) {
     MPoint p = vertexArray[i];
@@ -159,6 +141,48 @@ MStatus voxelizer::Voxelizer::getMinMaxPoints(const MFnMesh& mesh, MPoint& minPo
   }
 
   return status;
+}
+
+MStatus voxelizer::Voxelizer::calculateVoxelGridOccupancy(voxelizer::VoxelPointGrid& voxelPoints, const MFnMesh& mesh) {
+  for (int x = 0; x < voxelCountX; x++) {
+    for (int y = 0; y < voxelCountY; y++) {
+      for (int z = 0; z < voxelCountZ; z++) {
+        MPoint p(
+          x*resolution + minPoint.x,
+          y*resolution + minPoint.y,
+          z*resolution + minPoint.z);
+        MPoint closestPoint;
+        MStatus status = mesh.getClosestPoint(p, closestPoint, MSpace::kWorld);
+        if (!status) return status;
+        voxelPoints[x][y][z] =
+          (std::abs(p.x - closestPoint.x) < resolution) &&
+          (std::abs(p.y - closestPoint.y) < resolution) &&
+          (std::abs(p.z - closestPoint.z) < resolution);
+      }
+    }
+  }
+  return MS::kSuccess;
+}
+
+void voxelizer::Voxelizer::createVoxelGeometryArrays(MPointArray& vertexArray, MIntArray& polygonCounts, MIntArray& polygonConnects, const voxelizer::VoxelPointGrid& voxelPoints) {
+  for (int x = 0; x < voxelCountX; x++) {
+    for (int y = 0; y < voxelCountY; y++) {
+      for (int z = 0; z < voxelCountZ; z++) {
+        if (voxelPoints[x][y][z]) {
+          MPoint p(
+            x*resolution + minPoint.x,
+            y*resolution + minPoint.y,
+            z*resolution + minPoint.z);
+          addVoxel(
+            vertexArray,
+            polygonCounts,
+            polygonConnects,
+            p,
+            resolution);
+        }
+      }
+    }
+  }
 }
 
 void voxelizer::Voxelizer::addVoxel(MPointArray& vertexArray, MIntArray& polygonCounts, MIntArray& polygonConnects, MPoint minPoint, double resolution) {
