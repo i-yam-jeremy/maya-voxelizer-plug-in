@@ -18,7 +18,7 @@ Make sure CMake and Make are installed on your system, then run the following co
 
 ```
 cd <maya-voxelizer-plugin>
-cmake ..
+cmake .
 make
 ``` 
 
